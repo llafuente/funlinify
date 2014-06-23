@@ -5,7 +5,7 @@ var parse_ast = require('esprima').parse,
     verbose = false,
     selector = require('cssauron-falafel'),
     is_function = selector("function"),
-    hash = 0;
+    hash_id = 0;
 
 var objectKeys = Object.keys || function (obj) {
     var keys = [];
@@ -104,7 +104,7 @@ function getFunction(node, name) {
         return is_function(node) && node.id && node.id.name == name;
     });
 
-    if (fn.length) {
+    if (fn && fn.length) {
         return fn[0];
     }
 
@@ -130,7 +130,7 @@ function getParent(node, callback) {
 
 
 function get_hash() {
-    return "$" + (++hash) + "$";
+    return "__" + (++hash_id) + "__";
 }
 
 
@@ -143,16 +143,11 @@ function clone_node(node) {
         var value = node[name],
             cvalue;
 
-        if (name == "body") {
-            //recursion!
-            if (Array.isArray(value)) {
-                cvalue = value.map(clone_node);
-            } else {
-                cvalue = clone_node(value);
-            }
+        //recursion!
+        if (Array.isArray(value)) {
+            cvalue = value.map(clone_node);
         } else if ("object" === object.typeof(value)) {
-            //cvalue = object.clone(value);
-            //cvalue.$clone = true;
+            cvalue = clone_node(value);
         }
 
         // Note that undefined fields will be visited too, according to
@@ -161,7 +156,7 @@ function clone_node(node) {
         copy[name] = cvalue || value;
     });
 
-    copy.$clone = true;
+    copy.$cloned = true;
 
     return copy;
 }
@@ -230,6 +225,9 @@ function getArguments(node) {
         break;
         case "CallExpression":
             for (i = 0, max = node.arguments.length; i < max; ++i) {
+                if (node.arguments[i].type !== "Identifier") {
+                    throw new Error("Argument[@"+i+"] is not an identifier");
+                }
                 args.push(node.arguments[i].name);
             }
         break;
@@ -239,7 +237,7 @@ function getArguments(node) {
 }
 
 
-module.exports = require("browserify-transform-tools").makeStringTransform("inlinify", {},
+module.exports = require("browserify-transform-tools").makeStringTransform("funlinify", {},
     function (content, transformOptions, done) {
 
         //parse ast
@@ -255,56 +253,75 @@ module.exports = require("browserify-transform-tools").makeStringTransform("inli
             if (node.type == "CallExpression") {
                 var fn = getFunction(root, node.callee.name);
 
-                var hash = get_hash(),
-                    return_var = hash + "return",
-                    cfun = clone_node(fn),
-                    fun_args = getArguments(cfun),
-                    call_args = getArguments(node),
-                    fun_hargs = fun_args.map(function(x) { return hash + x; }),
-                    replacements = object.combine(fun_args, fun_hargs);
+                if (fn) {
+                    var hash = get_hash(),
+                        return_var = hash + "return",
+                        cfun = clone_node(fn),
+                        fun_args = getArguments(cfun),
+                        call_args,
+                        fun_hargs = fun_args.map(function(x) { return hash + x; }),
+                        replacements = object.combine(fun_args, fun_hargs);
 
-                //console.log(" --> Calling: ", node.callee.name);
-                //console.log(" --> Arguments: ", replacements);
+                    try {
+                        call_args = getArguments(node)
+                    } catch(e) {
+                        console.log("@" + node.loc.start.line + "  " + node.callee.name + " cannot be inline: " + e.message);
 
-                rename(cfun, replacements);
+                        return;
+                    }
 
-                var args_to_var = fun_hargs.map(function(v, k) {
-                    return v + " = " + call_args[k];
-                });
+                    console.log("@" + node.loc.start.line + " Calling: ", node.callee.name);
+                    //console.log(" --> Arguments: ", replacements);
 
-                args_to_var.push(return_var);
+                    rename(cfun, replacements);
 
-                args_to_var = "var " + args_to_var.join(",");
+                    var args_to_var = fun_hargs.map(function(v, k) {
+                        return v + " = " + call_args[k];
+                    });
 
-                returnToExpression(cfun, hash + "return");
+                    args_to_var.push(return_var);
 
-                var statement = getParent(node, function(node) { return node.type === "BlockStatement"});
+                    args_to_var = "var " + args_to_var.join(",");
 
-                if (statement) {
-                    //console.log("statement", statement);
+                    returnToExpression(cfun, hash + "return");
 
-                    var fst_property,
-                        fst_index;
+                    var statement = getParent(node, function(node) { return node.type === "BlockStatement"});
 
-                    // find where am i in this block statement
-                    //loop first level only, and try to find me!
-                    traverse(statement, function(st_node, st_parent, st_property, st_index, st_depth) {
-                        if (find(st_node, node)) {
-                            fst_property = st_property,
-                            fst_index = st_index;
+                    if (statement) {
+                        //console.log("statement", statement);
+
+                        var fst_property,
+                            fst_index;
+
+                        // find where am i in this block statement
+                        //loop first level only, and try to find me!
+                        traverse(statement, function(st_node, st_parent, st_property, st_index, st_depth) {
+                            if (find(st_node, node)) {
+                                fst_property = st_property,
+                                fst_index = st_index;
+                            }
+                        }, 0, false);
+
+                        if (fst_property) {
+                            replace(parent, property, index, {
+                                type: 'Identifier',
+                                name: return_var,
+                            });
+
+
+                            cfun.leadingComments = [
+                                {
+                                    "type": "Line",
+                                    "value": "inline CallExpression() - " + node.callee.name,
+                                }
+                            ];
+
+
+                            insertBefore(statement, fst_property, fst_index, cfun.body);
+                            insertBefore(statement, fst_property, fst_index, parse_ast(args_to_var));
+
+                            //console.log(escodegen.generate(statement));
                         }
-                    }, 0, false);
-
-                    if (fst_property) {
-                        replace(parent, property, index, {
-                            type: 'Identifier',
-                            name: return_var,
-                        });
-
-                        insertBefore(statement, fst_property, fst_index, cfun.body);
-                        insertBefore(statement, fst_property, fst_index, parse_ast(args_to_var));
-
-                        //console.log(escodegen.generate(statement));
                     }
                 }
             }
@@ -314,7 +331,7 @@ module.exports = require("browserify-transform-tools").makeStringTransform("inli
 
         //console.log(escodegen.generate(root));
 
-        done(null, escodegen.generate(root));
+        done(null, escodegen.generate(root, {compact: false}));
     });
 
 
