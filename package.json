@@ -1,5 +1,5 @@
 {
-  "name": "Funlinify",
+  "name": "funlinify",
   "version": "0.0.1",
   "description": "Inline javascript functions within a file (inline expansion).",
   "main": "index.js",
