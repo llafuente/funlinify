@@ -1,0 +1,44 @@
+{
+  "name": "inlinify",
+  "version": "0.0.1",
+  "description": "Inline javascript functions within a file (inline expansion).",
+  "main": "index.js",
+  "directories": {
+    "lib": ".",
+    "test": "test"
+  },
+  "scripts": {
+    "test": "tap test/test-*.js"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/llafuente/inlinify.git"
+  },
+  "keywords": [
+    "arguments",
+    "falafel",
+    "browserify",
+    "jsdoc"
+  ],
+  "author": {
+    "name": "Luis Lafuente",
+    "email": "llafuente@noboxout.com",
+    "url": "http://www.noboxout.com"
+  },
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/llafuente/inlinify/issues"
+  },
+  "homepage": "https://github.com/llafuente/inlinify",
+  "dependencies": {
+    "browserify-transform-tools": "^1.2.1",
+    "cssauron-falafel": "^1.2.1",
+    "escodegen": "^1.3.3",
+    "object-enhancements": "^0.1.1",
+    "esprima": "^1.2.2"
+  },
+  "devDependencies": {
+    "browserify": "^4.1.9",
+    "tap": "^0.4.11"
+  }
+}
