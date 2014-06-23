@@ -1,4 +1,4 @@
-# Argumentify [![Build Status](https://secure.travis-ci.org/llafuente/argumentify.png?branch=master)](http://travis-ci.org/llafuente/argumentify)
+# Inlinify [![Build Status](https://secure.travis-ci.org/llafuente/inlinify.png?branch=master)](http://travis-ci.org/llafuente/inlinify)
 
 Inline javascript functions within a file (inline expansion).
 
