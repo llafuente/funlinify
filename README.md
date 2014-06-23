@@ -1,4 +1,4 @@
-# Inlinify [![Build Status](https://secure.travis-ci.org/llafuente/inlinify.png?branch=master)](http://travis-ci.org/llafuente/inlinify)
+# funlinify [![Build Status](https://secure.travis-ci.org/llafuente/funlinify.png?branch=master)](http://travis-ci.org/llafuente/funlinify)
 
 Inline javascript functions within a file (inline expansion).
 
@@ -31,7 +31,7 @@ It's pretty straight forward, don't do anything fancy. So is no error prone.
 output_stream = fs.createWriteStream('debug/js-2dmath-browser-debug.js');
 
 require('browserify')('./index.js')
-    .transform('inlinify')
+    .transform('funlinify')
     .bundle()
     .pipe(output_stream);
 
@@ -42,7 +42,7 @@ require('browserify')('./index.js')
 ```js
 
 var file_contents = require("fs").fileReadSync("your-file.js");
-require("inlinify")(file_contents, {}, callback(err, new_file_contents));
+require("funlinify")(file_contents, {}, callback(err, new_file_contents));
 
 ```
 
