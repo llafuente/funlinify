@@ -86,11 +86,19 @@ function find(node, needle) {
 }
 
 
-
+/**
+ * Rename variables
+ */
 function rename(node, replacements) {
     traverse(node, function(node) {
-        if (node.type == "Identifier") {
-            if (replacements[node.name]) {
+        if (node.type == "Identifier"
+            // fix rename inside objects: {name: xxx}
+            && node.$parent.type !== "Property"
+            // fix rename objects: object.name
+            && node.$parent.type !== "MemberExpression") {
+            var owner = getParent(node, is_function);
+
+            if (owner.$id === root.$id && replacements[node.name]) {
                 node.name = replacements[node.name];
             }
         }
@@ -178,29 +186,55 @@ function insertBefore(node, property, index, new_node) {
     }
 }
 
+function insertAfter(node, property, index, new_node) {
+    if (index === null) {
+        throw new Error("is this legal ?");
+    } else {
+        if (node[property].length > index) {
+            node[property].splice(index + 1, 0, new_node);
+        } else {
+            node[property].push(new_node);
+        }
+    }
+}
 
-function returnToExpression(root, output_var) {
+
+function returnToExpression(root, output_var, break_label) {
+
     traverse(root, function(node, parent, property, index, depth) {
         if (node.type == "ReturnStatement") {
+            var owner = getParent(node, is_function);
 
-            //console.log("****************************");
-            //console.log(node, parent, property, index, depth);
-            //console.log("****************************");
-            //console.log(require("util").inspect(parent, {depth: null}));
-            //console.log(require("util").inspect(node, {depth: null}));
+            if (owner.$id === root.$id) {
 
-            replace(parent, property, index,  {
-                type: 'ExpressionStatement',
-                expression: {
-                    type: 'AssignmentExpression',
-                    operator: '=',
-                    left: {
-                        type: 'Identifier',
-                        name: output_var
+                //console.log("****************************");
+                //console.log(node, parent, property, index, depth);
+                //console.log("****************************");
+                //console.log(require("util").inspect(parent, {depth: null}));
+                //console.log(require("util").inspect(node, {depth: null}));
+
+                replace(parent, property, index,  {
+                    type: 'ExpressionStatement',
+                    expression: {
+                        type: 'AssignmentExpression',
+                        operator: '=',
+                        left: {
+                            type: 'Identifier',
+                            name: output_var
+                        },
+                        right: node.argument
                     },
-                    right: node.argument
-                },
-            });
+                });
+
+                insertAfter(parent, property, index, {
+                    type: 'BreakStatement',
+                    label: {
+                        type: 'Identifier',
+                        name: break_label
+                    }
+                });
+
+            }
 
             //console.log(require("util").inspect(parent, {depth: null}));
             //console.log(escodegen.generate(parent));
@@ -239,16 +273,16 @@ function getArguments(node) {
 
 module.exports = require("browserify-transform-tools").makeStringTransform("funlinify", {},
     function (content, transformOptions, done) {
-
         //parse ast
 
-        var root = parse_ast(content, {comment: true, loc: true});
+        var root = parse_ast(content, {comment: true, loc: true}),
+            file = require("path").basename(transformOptions.file);
 
         idze(root);
         parentize(root);
 
         traverse(root, function(node, parent, property, index, depth) {
-            //console.log("#" + node.$id, node.type, property, index);
+            verbose && console.log("#" + node.$id, node.type, property, index);
 
             if (node.type == "CallExpression") {
                 var fn = getFunction(root, node.callee.name);
@@ -262,15 +296,18 @@ module.exports = require("browserify-transform-tools").makeStringTransform("funl
                         fun_hargs = fun_args.map(function(x) { return hash + x; }),
                         replacements = object.combine(fun_args, fun_hargs);
 
+                    idze(cfun);
+                    parentize(cfun);
+
                     try {
                         call_args = getArguments(node)
                     } catch(e) {
-                        console.log("@" + node.loc.start.line + "  " + node.callee.name + " cannot be inline: " + e.message);
+                        console.log(file + "@" + node.loc.start.line + "  " + node.callee.name + " cannot be inline: " + e.message);
 
                         return;
                     }
 
-                    console.log("@" + node.loc.start.line + " Calling: ", node.callee.name);
+                    console.log(file + "@" + node.loc.start.line + " Calling: ", node.callee.name);
                     //console.log(" --> Arguments: ", replacements);
 
                     rename(cfun, replacements);
@@ -283,7 +320,7 @@ module.exports = require("browserify-transform-tools").makeStringTransform("funl
 
                     args_to_var = "var " + args_to_var.join(",");
 
-                    returnToExpression(cfun, hash + "return");
+                    returnToExpression(cfun, hash + "return", hash);
 
                     var statement = getParent(node, function(node) { return node.type === "BlockStatement"});
 
@@ -316,13 +353,26 @@ module.exports = require("browserify-transform-tools").makeStringTransform("funl
                                 }
                             ];
 
-
-                            insertBefore(statement, fst_property, fst_index, cfun.body);
+                            insertBefore(statement, fst_property, fst_index, {
+                                type: 'LabeledStatement',
+                                label: {
+                                    type: 'Identifier',
+                                    name: hash
+                                },
+                                body: cfun.body
+                            });
                             insertBefore(statement, fst_property, fst_index, parse_ast(args_to_var));
+
+                            idze(statement);
+                            parentize(statement);
 
                             //console.log(escodegen.generate(statement));
                         }
                     }
+                } else if (node.callee.type == "MemberExpression") {
+                    console.log(file + "@" + node.loc.start.line + " ignore-call: cant resolve a MemberExpression");
+                } else {
+                    console.log(file + "@" + node.loc.start.line + " ignore-call: ", node.callee.name);
                 }
             }
 
@@ -331,7 +381,7 @@ module.exports = require("browserify-transform-tools").makeStringTransform("funl
 
         //console.log(escodegen.generate(root));
 
-        done(null, escodegen.generate(root, {compact: false}));
+        done(null, escodegen.generate(root, {compact: false, comment: true}));
     });
 
 

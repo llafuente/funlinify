@@ -1,5 +1,10 @@
-function A(arg_a) {
+function A(arg_a, arg_b) {
     arg_a = arg_a + 1;
+
+    var decoy = {
+        arg_b: 0
+    };
+    decoy.arg_a = 1;
 
     return arg_a * arg_a;
 }

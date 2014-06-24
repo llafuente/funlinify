@@ -1,5 +1,9 @@
+// function inside function
+
 function A(arg_a) {
-    arg_a = arg_a + 1;
+    arg_a = arg_a + (function() {
+        return 1;
+    }());
 
     return arg_a * arg_a;
 }
