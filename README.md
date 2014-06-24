@@ -3,24 +3,24 @@
 Inline javascript functions within a file (inline expansion).
 
 
-## Gotchas
+## How it works ?
 
 The algorithm is pretty simple at this moment.
 * Search all CallExpressions.
   * Search if the function body is reachable (same file/ast)
-  * Generate a unique hash to use it as prefix for all variables in the function.
-  * Replace all identifiers in the function (that could lead to many problems)
-  * Replace ReturnExpression in the function by an AssignamentExpression to return variable.
+  * Prefix all variable arguments with a unique hash
+  * Replace ReturnExpression in the function by an AssignamentExpression(=) and break till the end of the function body.
   * Replace the CallExpression with the given return variable.
   * Append argument conversion before the CallExpression
   * Append function before the CallExpression
 
 It's pretty straight forward, don't do anything fancy. So is no error prone.
 
-* Do not support nested CallExpressions
-* Do not support function outside given 'string/ast'
-* Inline a function with CallExpressions could lead to problems
+## Gotchas
 
+* Do not support nested CallExpressions (just one will be replaced)
+* Do not inline functions outside given 'file/string/ast'
+* Do not inline functions with expressions as arguments.
 
 ## Usage
 

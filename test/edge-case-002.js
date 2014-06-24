@@ -1,3 +1,4 @@
+// call inside return
 function A(arg_a) {
     arg_a = arg_a + 1;
 
@@ -5,11 +6,7 @@ function A(arg_a) {
 }
 
 function B(arg_b) {
-    var out;
-
-    out = A(arg_b) * arg_b;
-
-    return out;
+    return A(arg_b) * arg_b;
 }
 
 
