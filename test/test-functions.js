@@ -11,6 +11,7 @@ var tap = require("tap"),
 ,"edge-case-005.js"
 ,"edge-case-006.js"
 ,"edge-case-007.js"
+,"edge-case-008.js"
 ].forEach(function(target_file) {
     var mfixture,
         fixture;

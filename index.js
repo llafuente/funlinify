@@ -285,9 +285,16 @@ module.exports = require("browserify-transform-tools").makeStringTransform("funl
             verbose && console.log("#" + node.$id, node.type, property, index);
 
             if (node.type == "CallExpression") {
-                var fn = getFunction(root, node.callee.name);
+                var fn = getFunction(root, node.callee.name),
+                    owner = getParent(node, is_function);
 
-                if (fn) {
+
+
+                if (
+                    (fn && !owner) // function call outside a function
+                    ||
+                    (fn && owner && owner.id.name != node.callee.name) // no recursion
+                ) {
                     var hash = get_hash(),
                         return_var = hash + "return",
                         cfun = clone_node(fn),
