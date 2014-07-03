@@ -271,8 +271,7 @@ function getArguments(node) {
 }
 
 
-module.exports = require("browserify-transform-tools").makeStringTransform("funlinify", {},
-    function (content, transformOptions, done) {
+function transform (content, transformOptions, done) {
         //parse ast
 
         var root = parse_ast(content, {comment: true, loc: true}),
@@ -293,7 +292,7 @@ module.exports = require("browserify-transform-tools").makeStringTransform("funl
                 if (
                     (fn && !owner) // function call outside a function
                     ||
-                    (fn && owner && owner.id.name != node.callee.name) // no recursion
+                    (fn && owner && owner.id && owner.id.name != node.callee.name) // no recursion
                 ) {
                     var hash = get_hash(),
                         return_var = hash + "return",
@@ -307,7 +306,7 @@ module.exports = require("browserify-transform-tools").makeStringTransform("funl
                     parentize(cfun);
 
                     try {
-                        call_args = getArguments(node)
+                        call_args = getArguments(node);
                     } catch(e) {
                         console.log(file + "@" + node.loc.start.line + "  " + node.callee.name + " cannot be inline: " + e.message);
 
@@ -329,7 +328,7 @@ module.exports = require("browserify-transform-tools").makeStringTransform("funl
 
                     returnToExpression(cfun, hash + "return", hash);
 
-                    var statement = getParent(node, function(node) { return node.type === "BlockStatement"});
+                    var statement = getParent(node, function(node) { return node.type === "BlockStatement"; });
 
                     if (statement) {
                         //console.log("statement", statement);
@@ -389,8 +388,12 @@ module.exports = require("browserify-transform-tools").makeStringTransform("funl
         //console.log(escodegen.generate(root));
 
         done(null, escodegen.generate(root, {compact: false, comment: true}));
-    });
+    };
 
+
+module.exports = require("browserify-transform-tools").makeStringTransform("funlinify", {}, transform);
+
+module.exports.transform = transform;
 
 module.exports.verbose = function(val) {
     if (val === undefined) {
